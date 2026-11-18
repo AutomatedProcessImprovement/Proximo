@@ -1,6 +1,8 @@
-# ProSim-ST
+# Proximo
 
-ProSim-ST is a web application for exploring short-term business process simulations. Upload an event log of a running process, a BPMN model and its simulation parameters, and it simulates what happens next from the current state of the process. The result plays back as cases moving through the diagram, with waiting times, workload and per-activity statistics alongside.
+Proximo is a web application for exploring short-term business process simulations. Upload an event log of a running process, a BPMN model and its simulation parameters, and it simulates what happens next from the current state of the process. The result plays back as cases moving through the diagram, with waiting times, workload and per-activity statistics alongside.
+
+Try it online at https://proximo.labx.ee. Proximo was previously called ProSim-ST, the name this repository still has.
 
 The system has two parts:
 
@@ -106,8 +108,8 @@ docker run -d --name prosim-backend --network prosim \
   -e DB_NAME=prosim \
   prosim-backend
 
-docker build -t prosim-st .
-docker run -d --name prosim-st --network prosim \
+docker build -t proximo .
+docker run -d --name proximo --network prosim \
   -p 127.0.0.1:3000:3000 \
   -v prosim-assets:/app/public/assets \
   -e RUN_MIGRATIONS=1 \
@@ -122,7 +124,7 @@ docker run -d --name prosim-st --network prosim \
   -e REDIS_HOST=prosim-redis \
   -e REDIS_PORT=6379 \
   -e PYTHON_MICROSERVICE_BASE_URL=http://prosim-backend:8000 \
-  prosim-st
+  proximo
 ```
 
 With `RUN_MIGRATIONS=1`, each app waits for MySQL and applies its migrations before it starts. The app is then at http://localhost:3000. The port is bound to `127.0.0.1`, so put a reverse proxy in front of it to serve it publicly.

@@ -39,7 +39,7 @@ describe("GET /api/samples/[name]/download", () => {
             .toEqual(["p2pfin/ongoing_event_log.csv", "p2pfin/bpmn_model.bpmn", "p2pfin/json_parameters.json"]);
         expect(response.status).toBe(200);
         expect(response.headers["Content-Type"]).toBe("application/zip");
-        expect(response.headers["Content-Disposition"]).toBe('attachment; filename="prosim-st-p2pfin.zip"');
+        expect(response.headers["Content-Disposition"]).toBe('attachment; filename="proximo-p2pfin.zip"');
         expect(Buffer.from(response.body).readUInt32LE(0)).toBe(0x04034b50);
     });
 

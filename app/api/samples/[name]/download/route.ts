@@ -30,7 +30,7 @@ export const GET = async (_request: Request, context: { params: Promise<{ name: 
             status: 200,
             headers: {
                 "Content-Type": "application/zip",
-                "Content-Disposition": `attachment; filename="prosim-st-${sample.name}.zip"`,
+                "Content-Disposition": `attachment; filename="proximo-${sample.name}.zip"`,
                 "Cache-Control": "public, max-age=86400",
             },
         });

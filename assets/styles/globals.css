@@ -38,6 +38,17 @@ h1 {
   text-align: center;
 }
 
+h1 .tagline {
+  display: block;
+  margin-top: 2px;
+  font: 400 15px 'Geist Sans', sans-serif;
+  color: #475569;
+}
+
+body:has(.simulation-toolbar) h1 .tagline {
+  display: none;
+}
+
 .token {
   stroke: #ffffff;
   stroke-width: 1.5;

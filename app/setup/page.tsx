@@ -388,7 +388,7 @@ const Setup = () => {
                         <SimulationHorizonInput />
                     </ConfigInput>
                     <small>
-                        With the current configuration, ProST will compute the state of the process
+                        With the current configuration, Proximo will compute the state of the process
                         at {formatReadableDate(data.config.startingPoint)} and
                         simulate the execution of the process until {formatReadableDate(endDate)}
                         {" "}({formatUtcOffset(csvData.logUtcOffset)}, the time zone of the uploaded log)
