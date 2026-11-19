@@ -2,13 +2,13 @@
 
 Proximo is a web application for exploring short-term business process simulations. Upload an event log of a running process, a BPMN model and its simulation parameters, and it simulates what happens next from the current state of the process. The result plays back as cases moving through the diagram, with waiting times, workload and per-activity statistics alongside.
 
-Try it online at https://proximo.labx.ee. Proximo was previously called ProSim-ST, the name this repository still has.
+Try it online at https://proximo.labx.ee.
 
 The system has two parts:
 
 | Part | Repository | Stack |
 | --- | --- | --- |
-| Web app (this repository) | [ProSim-ST](https://github.com/AutomatedProcessImprovement/ProSim-ST) | Next.js, React, TypeORM |
+| Web app (this repository) | [Proximo](https://github.com/AutomatedProcessImprovement/Proximo) | Next.js, React, TypeORM |
 | Simulation service | [ongoing-bps-state](https://github.com/AutomatedProcessImprovement/ongoing-bps-state/tree/web-application-version), branch `web-application-version` | FastAPI, Prosimos |
 
 Both use the same MySQL database. The web app also needs Redis.
@@ -26,7 +26,7 @@ Both use the same MySQL database. The web app also needs Redis.
 Clone both repositories side by side:
 
 ```bash
-git clone https://github.com/AutomatedProcessImprovement/ProSim-ST.git
+git clone https://github.com/AutomatedProcessImprovement/Proximo.git
 git clone -b web-application-version https://github.com/AutomatedProcessImprovement/ongoing-bps-state.git
 ```
 
@@ -66,7 +66,7 @@ uvicorn main_web_app:app --reload --host 127.0.0.1 --port 8000
 In a second terminal, start the web app:
 
 ```bash
-cd ProSim-ST
+cd Proximo
 cp .env.example .env
 ```
 
