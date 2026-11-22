@@ -5,11 +5,11 @@ import FileItem from "@components/fileHandlers/FileItem";
 import FileInput from "@components/fileHandlers/FileInput";
 import FilePreview from "@components/fileHandlers/FilePreview";
 import {PlayIcon} from "@heroicons/react/24/solid";
-import {BeakerIcon} from "@heroicons/react/24/outline";
+import {ArrowDownTrayIcon, BeakerIcon} from "@heroicons/react/24/outline";
 import {toast} from "sonner";
 import {SAMPLE_FILES, SAMPLE_PROCESSES} from "@definitions/samples";
 import {DataContext} from "@context/DataContext";
-import {parseCsvFile} from "@utils/fileHelpers";
+import {LogFileError, parseCsvFile} from "@utils/fileHelpers";
 import {useRouter} from "next/navigation";
 import { v4 as uuid } from 'uuid';
 import {CsvContext} from "@context/CsvContext";
@@ -34,7 +34,7 @@ const FileForm = () => {
         setFiles([...files, ..._files.filter(file => !filenames.includes(file.name))]);
     };
 
-    const startSetup = async (logFile: File, configFiles: { bpmnFile?: File, jsonFile?: File } = {}) => {
+    const startSetup = async (logFile: File, sample: { bpmnFile?: File, jsonFile?: File } = {}) => {
         const { fileHeaders, fileFirstLine, fileLastLine } = await parseCsvFile(logFile);
 
         setData(prevData => ({
@@ -43,8 +43,8 @@ const FileForm = () => {
             mapping: {},
             config: { ...prevData.config, startingPoint: '' },
             logFile,
-            bpmnFile: configFiles.bpmnFile ?? null,
-            jsonFile: configFiles.jsonFile ?? null,
+            bpmnFile: sample.bpmnFile ?? null,
+            jsonFile: sample.jsonFile ?? null,
         }));
         setCsvData(prevData => ({
             ...prevData,
@@ -59,7 +59,14 @@ const FileForm = () => {
     const onFormSubmit = async (e) => {
         e.preventDefault();
         if (files.length === 0) return;
-        await startSetup(files[0]);
+        try {
+            await startSetup(files[0]);
+        } catch (error) {
+            toast.error(`${files[0].name} cannot be used as a log`, {
+                description: error instanceof LogFileError ? error.message : 'The file could not be read as CSV.',
+                duration: 15000,
+            });
+        }
     }
 
     const onSampleSelected = async (name: string) => {
@@ -105,11 +112,19 @@ const FileForm = () => {
               <span>No log at hand? Try with sample data:</span>
               {
                   SAMPLE_PROCESSES.map(sample =>
-                      <button key={sample.name} type='button' onClick={() => onSampleSelected(sample.name)}
-                              disabled={loadingSample !== null}
-                              className='rounded-2xl border border-slate-300 bg-white px-3 py-1 font-semibold hover:bg-slate-100 disabled:text-slate-300'>
-                          {loadingSample === sample.name ? 'Loading…' : `${sample.label} (${sample.size})`}
-                      </button>
+                      <span key={sample.name} className='inline-flex overflow-hidden rounded-2xl border border-slate-300 bg-white'>
+                          <button type='button' onClick={() => onSampleSelected(sample.name)}
+                                  disabled={loadingSample !== null}
+                                  className='px-3 py-1 font-semibold hover:bg-slate-100 disabled:text-slate-300'>
+                              {loadingSample === sample.name ? 'Loading…' : `${sample.label} (${sample.size})`}
+                          </button>
+                          <a href={`/api/samples/${sample.name}/download`} download
+                             title={`Download the ${sample.label} log, BPMN model and parameters as a zip file, to upload them yourself`}
+                             aria-label={`Download the ${sample.label} files`}
+                             className='flex items-center border-l border-slate-300 px-2 hover:bg-slate-100'>
+                              <ArrowDownTrayIcon className='size-4'/>
+                          </a>
+                      </span>
                   )
               }
           </div>

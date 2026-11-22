@@ -1,6 +1,6 @@
 "use client";
 
-import {useContext, useEffect, useRef, useState} from "react";
+import {useContext, useEffect, useMemo, useRef, useState} from "react";
 import {DataContext} from "@context/DataContext";
 import {useRouter} from "next/navigation";
 import {
@@ -14,28 +14,31 @@ import {
 import {AlgorithmConfiguration, LogMapping} from "@definitions/config/interfaces";
 import {FileTypes, TimeUnits} from "@definitions/config/enums";
 import {toast} from "sonner";
-import {ConfigFileInput, MappingInput, Preview, Step, Stepper} from "@components/simulationSetup";
+import {ConfigFileInput, MappingInput, OpenCasesChart, Preview, Step, Stepper} from "@components/simulationSetup";
 import {ConfigInput, SimulationHorizonInput, StartingPointInput} from "@components/simulationSetup/configInput";
 import {CsvContext} from "@context/CsvContext";
 import {clsx} from "clsx/lite";
 import axios from "axios";
-import {calculateEndDate, formatHorizon, formatReadableDate, formatUtcOffset, logTimeToUtc} from "@utils/dateHelpers";
-import {getCellByHeader, getLogUtcOffset, normalizeLogDate, readLines, readText} from "@utils/fileHelpers";
+import {calculateEndDate, formatHorizon, formatInLogTime, formatReadableDate, formatUtcOffset, logTimeToUtc} from "@utils/dateHelpers";
+import {readLines, readText} from "@utils/fileHelpers";
 import {clearSetup, loadSetup, saveSetup} from "@utils/setupStorage";
-import {CaseSpans, countOngoingCases, readCaseSpans} from "@utils/ongoingCases";
+import {buildCaseSpans, CaseSpans, countOngoingCases, openCasesOverTime} from "@utils/ongoingCases";
+import {checkLogColumns} from "@utils/logCheck";
 import {
     activitiesMissingFromModel,
     collectActivities,
     describeMissingActivities,
+    summarizeBpmn,
     validateSimulationInputs,
 } from "@utils/inputValidation";
 import {JobStatus} from "@utils/simulationJobs";
+import {pollRun} from "@utils/pollRun";
 import RunProgress, {STAGE_LABELS} from "@components/simulationSetup/RunProgress";
 
-const POLL_INTERVAL_MS = 1000;
-const MAX_POLL_FAILURES = 30;
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const QUIET_SHARE = 0.25;
+const MINUTE = 60000;
 
 const IssueList = ({issues}: {issues: string[]}) =>
     <ul className='list-disc pl-4'>{issues.map(issue => <li key={issue}>{issue}</li>)}</ul>;
@@ -57,6 +60,8 @@ const Setup = () => {
     const [runStatus, setRunStatus] = useState<JobStatus | null>(null);
     const [fileIssues, setFileIssues] = useState<string[] | null>(null);
     const [missingActivities, setMissingActivities] = useState<string[]>([]);
+    const [noActivityInModel, setNoActivityInModel] = useState(false);
+    const [logLines, setLogLines] = useState<string[] | null>(null);
     const mountedRef = useRef(true);
     const router = useRouter();
 
@@ -105,6 +110,18 @@ const Setup = () => {
 
     const {bpmnFile, jsonFile, logFile} = data as {bpmnFile?: File; jsonFile?: File; logFile?: File};
     useEffect(() => {
+        setLogLines(null);
+        if (!logFile) return;
+
+        let cancelled = false;
+        readLines(logFile, {removeWhite: true})
+            .then(lines => { if (!cancelled) setLogLines(lines); })
+            .catch(() => toast.error('The log could not be read', {description: 'Go back and upload it again.'}));
+
+        return () => { cancelled = true; };
+    }, [logFile]);
+
+    useEffect(() => {
         setFileIssues(null);
         if (!bpmnFile || !jsonFile) return;
 
@@ -119,28 +136,39 @@ const Setup = () => {
     const activityColumn = (data.mapping as Record<string, string>).activity;
     useEffect(() => {
         setMissingActivities([]);
-        if (!bpmnFile || !logFile || !activityColumn) return;
+        setNoActivityInModel(false);
+        if (!bpmnFile || !logLines || !activityColumn) return;
 
         let cancelled = false;
-        Promise.all([readLines(logFile, {removeWhite: true}), readText(bpmnFile)])
-            .then(([lines, bpmn]) => {
-                if (!cancelled) setMissingActivities(activitiesMissingFromModel(collectActivities(lines, activityColumn), bpmn));
+        readText(bpmnFile)
+            .then(bpmn => {
+                if (cancelled) return;
+                const activities = collectActivities(logLines, activityColumn);
+                const missing = activitiesMissingFromModel(activities, bpmn);
+                setMissingActivities(missing);
+                setNoActivityInModel(activities.size > 0 && missing.length === activities.size && (summarizeBpmn(bpmn)?.tasks.length ?? 0) > 0);
             })
             .catch(() => {});
 
         return () => { cancelled = true; };
-    }, [bpmnFile, logFile, activityColumn]);
+    }, [bpmnFile, logLines, activityColumn]);
 
-    const fileIssuesNote = fileIssues?.length > 0 &&
-        <div className='rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-900'>
-            <p className='mb-1 font-medium'>These files cannot be simulated:</p>
-            <IssueList issues={fileIssues}/>
-        </div>;
 
-    const missingActivitiesNote = missingActivities.length > 0 &&
+    const blockingIssues = [
+        ...(fileIssues ?? []),
+        ...(noActivityInModel ? ['None of the activities in the log is a task in the BPMN model, so the log and the model do not belong to the same process. Check the Activity column in the mapping, or upload the model of this process.'] : []),
+    ];
+
+    const missingActivitiesNote = missingActivities.length > 0 && !noActivityInModel &&
         <p className='rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900'>
             {describeMissingActivities(missingActivities)}
         </p>;
+
+    const fileIssuesNote = blockingIssues.length > 0 &&
+        <div className='rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-900'>
+            <p className='mb-1 font-medium'>These files cannot be simulated:</p>
+            <IssueList issues={blockingIssues}/>
+        </div>;
 
     useEffect(() => {
         if (data.config.startingPoint) {
@@ -150,20 +178,23 @@ const Setup = () => {
 
     const { case: caseColumn, start: startColumn, end: endColumn } = data.mapping as Record<string, string>;
     useEffect(() => {
-        if (!data.logFile || !caseColumn || !endColumn) return;
-
-        let cancelled = false;
-        setCaseSpans(null);
-        readCaseSpans(data.logFile, caseColumn, startColumn, endColumn)
-            .then(spans => { if (!cancelled) setCaseSpans(spans); })
-            .catch(() => {});
-
-        return () => { cancelled = true; };
-    }, [data.logFile, caseColumn, startColumn, endColumn]);
+        setCaseSpans(logLines && caseColumn && endColumn ? buildCaseSpans(logLines, caseColumn, activityColumn, startColumn, endColumn) : null);
+    }, [logLines, caseColumn, activityColumn, startColumn, endColumn]);
 
     const ongoingCases = (caseSpans && data.config.startingPoint)
         ? countOngoingCases(caseSpans, logTimeToUtc(data.config.startingPoint, csvData.logUtcOffset).getTime())
         : null;
+
+    const openCases = useMemo(() => caseSpans && openCasesOverTime(caseSpans), [caseSpans]);
+    const quietStart = ongoingCases !== null && openCases !== null && ongoingCases > 0
+        && ongoingCases < openCases.peak * QUIET_SHARE;
+
+    const pickStartingPoint = (moment: number) => {
+        const picked = formatInLogTime(new Date(Math.floor(moment / MINUTE) * MINUTE), csvData.logUtcOffset).replace(' ', 'T');
+        const {logStartDate, logEndDate} = csvData;
+        const startingPoint = picked < logStartDate ? logStartDate : picked > logEndDate ? logEndDate : picked;
+        setData(prev => ({...prev, config: {...prev.config, startingPoint}}));
+    };
 
     const ongoingCasesNote = ongoingCases === null
         ? null
@@ -173,10 +204,15 @@ const Setup = () => {
                 without ongoing work and only shows new arrivals. Choose an earlier starting point to start from
                 a busy process.
             </p>
-            : <p className='text-sm text-slate-600'>
-                {ongoingCases} {ongoingCases === 1 ? 'case is' : 'cases are'} in progress in the uploaded log at
-                this starting point.
-            </p>;
+            : quietStart
+                ? <p className='rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900'>
+                    Only {ongoingCases} {ongoingCases === 1 ? 'case is' : 'cases are'} in progress at this starting
+                    point, while the log reaches {openCases.peak}. Pick a busier moment to start from a loaded process.
+                </p>
+                : <p className='text-sm text-slate-600'>
+                    {ongoingCases} {ongoingCases === 1 ? 'case is' : 'cases are'} in progress in the uploaded log at
+                    this starting point.
+                </p>;
 
     const onMappingCompleted = (data: FormData) => {
         const logMapping: LogMapping = {
@@ -197,23 +233,31 @@ const Setup = () => {
             mapping: logMapping,
         }));
 
-        const startLog = normalizeLogDate(getCellByHeader(csvData.firstLine, csvData.headers, logMapping.start));
-        const rawEndLog = getCellByHeader(csvData.lastLine, csvData.headers, logMapping.end);
-        const endLog = normalizeLogDate(rawEndLog);
-
-        setCsvData((prev) => ({
-            ...prev,
-            logStartDate: startLog ?? "",
-            logEndDate: endLog ?? "",
-            logUtcOffset: getLogUtcOffset(rawEndLog),
-        }))
-
-        if (new Set(Object.keys(logMapping)).size === new Set(Object.values(logMapping)).size) {
-            return true
-        } else {
+        if (new Set(Object.keys(logMapping)).size !== new Set(Object.values(logMapping)).size) {
             toast.error('Invalid mapping', {description: 'You assigned the same column to multiple attributes!'})
             return false
         }
+        if (!logLines) {
+            toast.error('The log is still being read', {description: 'Try again in a moment.'});
+            return false;
+        }
+
+        const check = checkLogColumns(logLines, logMapping as unknown as Record<string, string>);
+        if (check.issues.length || !check.startDate) {
+            toast.error('The log cannot be used with this mapping', {
+                description: <IssueList issues={check.issues.length ? check.issues : ['The log has no events with a start and an end time.']}/>,
+                duration: 15000,
+            });
+            return false;
+        }
+
+        setCsvData((prev) => ({
+            ...prev,
+            logStartDate: check.startDate,
+            logEndDate: check.endDate,
+            logUtcOffset: check.utcOffset,
+        }))
+        return true
     }
 
     const onConfigCompleted = (data: FormData) => {
@@ -246,36 +290,11 @@ const Setup = () => {
             toast.error('Invalid JSON', {description: 'You have to upload a JSON file!'});
             return false;
         }
-        if (fileIssues?.length) {
-            toast.error('These files cannot be simulated', {description: <IssueList issues={fileIssues}/>});
+        if (blockingIssues.length) {
+            toast.error('These files cannot be simulated', {description: <IssueList issues={blockingIssues}/>});
             return false;
         }
         return true;
-    }
-
-    const pollRun = async (id: string): Promise<JobStatus | null> => {
-        let failures = 0;
-        while (mountedRef.current) {
-            await sleep(POLL_INTERVAL_MS);
-            try {
-                const {data: status} = await axios.get<JobStatus>(`/api/simulation/${id}/status`);
-                failures = 0;
-                if (mountedRef.current) setRunStatus(status);
-                if (status.stage === 'done' || status.stage === 'failed') return status;
-            } catch (error) {
-                if (error?.response?.status === 404 || ++failures >= MAX_POLL_FAILURES) {
-                    return {
-                        stage: 'failed',
-                        durations: {},
-                        error: {
-                            stage: 'queued',
-                            message: error?.response?.data?.error ?? 'Lost contact with the server while the simulation was running.',
-                        },
-                    };
-                }
-            }
-        }
-        return null;
     }
 
     const onSubmit = async () => {
@@ -308,7 +327,7 @@ const Setup = () => {
         }
 
         setRunStatus({stage: 'queued', durations: {}});
-        const status = await pollRun(id);
+        const status = await pollRun(id, setRunStatus, () => mountedRef.current);
         if (!status) return;
 
         if (status.stage === 'done') {
@@ -321,7 +340,7 @@ const Setup = () => {
         setIsSubmitting(false);
         setRunStatus(null);
         const failedStage = status.error?.stage ?? 'simulation';
-        toast.error(`The simulation failed: ${STAGE_LABELS[failedStage].toLowerCase()}`, {
+        toast.error(status.error?.input ? 'These files cannot be simulated' : `The simulation failed: ${STAGE_LABELS[failedStage].toLowerCase()}`, {
             description: status.error?.message,
             duration: 15000,
         });
@@ -358,14 +377,18 @@ const Setup = () => {
                   onNext={onConfigCompleted}
             >
                 <div className = 'flex flex-col gap-4 p-4'>
-                    <ConfigInput label='Starting Point' description='The time at which the short-term simulation begins (by default, the end of the uploaded event log).'>
+                    <ConfigInput label='Starting Point' description='The time at which the short-term simulation begins. Type it, or pick a moment on the chart.'>
                         <StartingPointInput minDate={csvData.logStartDate} maxDate={csvData.logEndDate} />
                     </ConfigInput>
+                    {openCases && <OpenCasesChart series={openCases}
+                                                  selected={data.config.startingPoint ? logTimeToUtc(data.config.startingPoint, csvData.logUtcOffset).getTime() : null}
+                                                  utcOffset={csvData.logUtcOffset}
+                                                  onPick={pickStartingPoint}/>}
                     <ConfigInput label='Simulation Horizon' description='The duration (in time) to simulate, starting from the specified starting point.'>
                         <SimulationHorizonInput />
                     </ConfigInput>
                     <small>
-                        With the current configuration, ProST will compute the state of the process
+                        With the current configuration, Proximo will compute the state of the process
                         at {formatReadableDate(data.config.startingPoint)} and
                         simulate the execution of the process until {formatReadableDate(endDate)}
                         {" "}({formatUtcOffset(csvData.logUtcOffset)}, the time zone of the uploaded log)
@@ -391,7 +414,7 @@ const Setup = () => {
                         <ConfigFileInput type={FileTypes.JSON} />
                     </div>
                 </div>
-                {(fileIssues?.length || missingActivities.length > 0) &&
+                {(blockingIssues.length > 0 || missingActivities.length > 0) &&
                     <div className='flex flex-col gap-2 p-4'>
                         {fileIssuesNote}
                         {missingActivitiesNote}
@@ -431,7 +454,7 @@ const Setup = () => {
                                                     <ArrowRightIcon className='size-3'/>
                                                 </td>
                                                 <td className = { clsx('text-right', value === '__DISCOVER__' && 'italic') }>
-                                                    {value === '__DISCOVER__' ? 'Discover' : value as string}
+                                                    {value === '__DISCOVER__' ? 'Computed from the log' : value as string}
                                                 </td>
                                             </tr>
                                         )
@@ -456,7 +479,7 @@ const Setup = () => {
                                     )
                                 }
                             </dl>
-                            {ongoingCases === 0 && <div className='mt-3'>{ongoingCasesNote}</div>}
+                            {(ongoingCases === 0 || quietStart) && <div className='mt-3'>{ongoingCasesNote}</div>}
                         </Preview>
                     </div>
                     {fileIssuesNote}

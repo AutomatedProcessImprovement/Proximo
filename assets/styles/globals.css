@@ -38,6 +38,17 @@ h1 {
   text-align: center;
 }
 
+h1 .tagline {
+  display: block;
+  margin-top: 2px;
+  font: 400 15px 'Geist Sans', sans-serif;
+  color: #475569;
+}
+
+body:has(.simulation-toolbar) h1 .tagline {
+  display: none;
+}
+
 .token {
   stroke: #ffffff;
   stroke-width: 1.5;
@@ -308,6 +319,16 @@ h1 {
   color: #115e59;
 }
 
+.count-idle {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.count-off {
+  background: #f8fafc;
+  color: #64748b;
+}
+
 .task-panel-text {
   color: #334155;
   margin-bottom: 8px;
@@ -335,6 +356,21 @@ h1 {
 .work-line {
   fill: none;
   stroke: #0f766e;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.busy-area {
+  fill: #0f766e;
+}
+
+.idle-area {
+  fill: #cbd5e1;
+}
+
+.as-is-line {
+  fill: none;
+  stroke: #475569;
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
@@ -482,6 +518,266 @@ h1 {
   pointer-events: none;
 }
 
+.swatch-idle {
+  background: #cbd5e1;
+}
+
+.swatch-as-is {
+  background: #475569;
+}
+
+.toolbar-btn[aria-pressed="true"] {
+  border-color: #0f766e;
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.resource-pools {
+  margin-top: 4px;
+}
+
+.resource-pool {
+  padding: 6px 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.resource-pool:first-child {
+  border-top: 0;
+}
+
+.resource-pool-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.resource-pool-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.resource-chart svg {
+  height: 56px;
+}
+
+.resource-list {
+  margin-top: 6px;
+}
+
+.resource-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+}
+
+.resource-name {
+  flex: 0 0 45%;
+  overflow: hidden;
+  color: #334155;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.resource-bar i {
+  display: block;
+  height: 100%;
+  background: #0f766e;
+}
+
+.whatif-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.whatif-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #334155;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepper {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.stepper button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  font-weight: 700;
+  color: #334155;
+}
+
+.stepper button:hover {
+  background: #f1f5f9;
+}
+
+.stepper output {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #334155;
+}
+
+.stepper.changed output {
+  font-weight: 700;
+  color: #115e59;
+}
+
+.stepper-was {
+  position: absolute;
+  right: 100%;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.whatif-tasks summary {
+  cursor: pointer;
+}
+
+.whatif-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.whatif-run:not(:disabled) {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.whatif-run:not(:disabled):hover {
+  background: #115e59;
+}
+
+.whatif-earlier li {
+  padding: 2px 0;
+}
+
+.whatif-earlier a {
+  color: #0f766e;
+  text-decoration: underline;
+}
+
+.compare-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+  font-size: 13px;
+}
+
+.compare-header {
+  margin-bottom: 12px;
+}
+
+.compare-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.compare-header p {
+  color: #334155;
+}
+
+.compare-card {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.compare-scroll {
+  overflow-x: auto;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 4px 6px;
+  border-top: 1px solid #e2e8f0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.compare-table thead th {
+  border-top: 0;
+  vertical-align: bottom;
+  white-space: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.compare-table tbody th,
+.compare-table thead th:first-child {
+  max-width: 230px;
+  overflow: hidden;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.compare-table tbody th button {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-decoration-color: #cbd5e1;
+}
+
+.compare-table tr.selected {
+  background: #f1f5f9;
+}
+
+.compare-spread {
+  color: #475569;
+}
+
+.compare-note {
+  display: block;
+  margin-top: 8px;
+}
+
+.compare-card.task-panel-chart svg.compare-chart {
+  height: 170px;
+}
+
 .simulation-toolbar {
   position: fixed;
   top: 12px;
@@ -584,6 +880,7 @@ h1 {
   font-size: 12px;
   border-radius: 4px;
   pointer-events: none;
+  white-space: nowrap;
 }
 
 .play-controls {
@@ -806,8 +1103,159 @@ h1 {
 }
 
 .stats-element-chart > #cycle-time-chart-time-bar {
-    background-color: black;
-    opacity: 0.2;
+    left: 24px;
+    right: 0;
+    width: auto;
+    background-color: #eeeeee;
+    border-left: 1px solid #94a3b8;
+}
+
+.longest-queue-none {
+    display: block;
+}
+
+.longest-queue {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #92400e;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.wtpt-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.wtpt-legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #475569;
+}
+
+.wtpt-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.wtpt-none {
+    font-size: 12px;
+    font-style: italic;
+    color: #64748b;
+}
+
+.wtpt-empty summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: #475569;
+}
+
+.wtpt-empty .wtpt-row {
+    margin-top: 6px;
+}
+
+.bjs-powered-by {
+    right: auto !important;
+    left: 15px;
+}
+
+.workload-label,
+.start-date,
+.end-date {
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 3px;
+}
+
+.timeline-peak {
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
+    width: 2px;
+    height: 62px;
+    margin-left: -1px;
+    background: #d97706;
+}
+
+.peak-legend {
+    margin-left: 10px;
+    color: #64748b;
+}
+
+.peak-swatch {
+    display: inline-block;
+    width: 2px;
+    height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: #d97706;
+}
+
+.run-tasks {
+    margin-bottom: 8px;
+}
+
+.run-tasks li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.run-tasks button {
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.run-tasks .stats-unit {
+    flex-shrink: 0;
+}
+
+.run-facts div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+
+.run-facts dt {
+    color: #475569;
+}
+
+.run-facts dd {
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.open-cases-chart svg {
+    display: block;
+    width: 100%;
+    height: 70px;
+    margin-top: 6px;
+    cursor: crosshair;
+    border-bottom: 1px solid #94a3b8;
+}
+
+.open-cases-area {
+    fill: #bfdbfe;
+    stroke: none;
 }
 
 .wtpt-list {
@@ -868,17 +1316,6 @@ h1 {
     transition: width 0.4s ease;
 }
 
-.wtpt-bar-empty {
-    width: 100%;
-    background: rgba(34, 36, 42, 0.12);
-}
-
-.wtpt-bar-empty-label {
-    font-size: 11px;
-    font-style: italic;
-    color: #64748b;
-}
-
 .wtpt-bar-wt {
     background: #e74c3c;
     color: white;
@@ -924,6 +1361,12 @@ h1 {
   touch-action: none;
 }
 
+@media (max-width: 1760px) {
+  body:has(.simulation-toolbar) h1 {
+    visibility: hidden;
+  }
+}
+
 @media (max-width: 1200px) {
   body:has(.simulation-toolbar) h1 {
     display: none;
@@ -964,8 +1407,13 @@ h1 {
     display: none;
   }
 
+  .simulation-toolbar {
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+
   .diagram-area {
-    height: calc(var(--timeline-top) - 150px);
+    height: calc(var(--timeline-top) - 180px);
   }
 
   .task-panel {

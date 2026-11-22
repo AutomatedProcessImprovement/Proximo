@@ -26,8 +26,8 @@ jest.mock("axios", () => ({
 }));
 
 const MODEL = `<definitions><process id="p">
-  <startEvent id="start"/><task id="Task_1" name="A"/><endEvent id="end"/>
-</process></definitions>`;
+  <startEvent id="start"/><userTask id="Task_1" name="A"/><endEvent id="end"/>
+</process><BPMNDiagram><BPMNPlane><BPMNShape id="s" bpmnElement="Task_1"/></BPMNPlane></BPMNDiagram></definitions>`;
 const PARAMETERS = JSON.stringify({
     resource_profiles: [], resource_calendars: [], arrival_time_distribution: {},
     gateway_branching_probabilities: [], task_resource_distribution: [{task_id: "Task_1", resources: []}],
@@ -140,6 +140,7 @@ describe("POST /api/simulation", () => {
                     case_id: 1,
                     active_elements: {token: "Task_1"},
                     arrival_time: "2023-12-30T10:15:00.646000+0200",
+                    task_times: {Task_1: {enabled: "2023-12-30T10:15:00.000000+0200", started: null}},
                 }, {
                     case_id: 4,
                     active_elements: {token: "Flow_4"},
@@ -153,21 +154,21 @@ describe("POST /api/simulation", () => {
         expect(mkdirSync).toHaveBeenCalledWith(expect.stringContaining("public/assets"), {recursive: true});
         expect(writeFile).toHaveBeenCalledWith(
             expect.stringContaining("process-1_model_file.bpmn"),
-            expect.any(Buffer),
+            MODEL.replace("<userTask", "<task"),
         );
         expect(queryRunner.connect).toHaveBeenCalled();
         expect(queryRunner.startTransaction).toHaveBeenCalled();
         expect(queryRunner.query).toHaveBeenCalledTimes(3);
-        expect(queryRunner.query).toHaveBeenNthCalledWith(3, expect.stringContaining("INSERT INTO frame (caseId, activeElements, arrivalTime, processId)"), [
-            1, JSON.stringify({token: "Task_1"}), "2023-12-30 08:15:00", "process-1",
-            4, JSON.stringify({token: "Flow_4"}), null, "process-1",
+        expect(queryRunner.query).toHaveBeenNthCalledWith(3, expect.stringContaining("INSERT INTO frame (caseId, activeElements, arrivalTime, taskTimes, processId)"), [
+            1, JSON.stringify({token: "Task_1"}), "2023-12-30 08:15:00", JSON.stringify({Task_1: {enabled: Date.UTC(2023, 11, 30, 8, 15), started: null}}), "process-1",
+            4, JSON.stringify({token: "Flow_4"}), null, null, "process-1",
         ]);
         expect(queryRunner.commitTransaction).toHaveBeenCalled();
         expect(queryRunner.release).toHaveBeenCalled();
         expect(redis.set).toHaveBeenCalledWith(
             `${REDIS_KEY_PREFIX_FRAMES}process-1`,
             JSON.stringify([
-                {caseId: 1, activeElements: {token: "Task_1"}, arrivalTime: "2023-12-30T08:15:00.646Z"},
+                {caseId: 1, activeElements: {token: "Task_1"}, arrivalTime: "2023-12-30T08:15:00.646Z", taskTimes: {Task_1: {enabled: Date.UTC(2023, 11, 30, 8, 15), started: null}}},
                 {caseId: 4, activeElements: {token: "Flow_4"}},
             ]),
             "EX",
@@ -262,8 +263,8 @@ describe("POST /api/simulation", () => {
         const response = await submit(body);
 
         const pythonBody = (axios.post as jest.Mock).mock.calls[0][1] as FormData;
-        expect(pythonBody.get("start_time")).toBe("2024-01-01T08:00:00.000Z");
-        expect(pythonBody.get("simulation_horizon")).toBe("2024-01-02T08:00:00.000Z");
+        expect(pythonBody.get("start_time")).toBe("2024-01-01T10:00:00.000+02:00");
+        expect(pythonBody.get("simulation_horizon")).toBe("2024-01-02T10:00:00.000+02:00");
         expect(queryRunner.query).toHaveBeenNthCalledWith(1, expect.stringContaining("INSERT INTO process"),
             ["process-1", "process-1_model_file.bpmn", "2024-01-01 08:00:00", "2024-01-02 08:00:00", "+02:00"]);
         expect(queryRunner.query).toHaveBeenNthCalledWith(2, expect.stringContaining("INSERT INTO event"),

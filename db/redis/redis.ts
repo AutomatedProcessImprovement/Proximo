@@ -3,7 +3,8 @@ import Redis, {RedisOptions} from "ioredis";
 export const REDIS_KEY_PREFIX_FRAMES = 'frames:';
 export const REDIS_KEY_PREFIX_WORKLOAD = 'workload:';
 export const REDIS_KEY_PREFIX_CYCLE_TIME = 'cycle-time:';
-export const REDIS_KEY_PREFIX_ANALYSIS = 'analysis-v2:';
+export const REDIS_KEY_PREFIX_ANALYSIS = 'analysis-v3:';
+export const REDIS_KEY_PREFIX_RESOURCES = 'resources:';
 
 const getRedisConfiguration = () => {
     return {

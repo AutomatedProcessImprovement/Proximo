@@ -1,12 +1,14 @@
-# ProSim-ST
+# Proximo
 
-ProSim-ST is a web application for exploring short-term business process simulations. Upload an event log of a running process, a BPMN model and its simulation parameters, and it simulates what happens next from the current state of the process. The result plays back as cases moving through the diagram, with waiting times, workload and per-activity statistics alongside.
+Proximo is a web application for exploring short-term business process simulations. Upload an event log of a running process, a BPMN model and its simulation parameters, and it simulates what happens next from the current state of the process. The result plays back as cases moving through the diagram, with waiting times, workload and per-activity statistics alongside.
+
+Try it online at https://proximo.labx.ee.
 
 The system has two parts:
 
 | Part | Repository | Stack |
 | --- | --- | --- |
-| Web app (this repository) | [ProSim-ST](https://github.com/AutomatedProcessImprovement/ProSim-ST) | Next.js, React, TypeORM |
+| Web app (this repository) | [Proximo](https://github.com/AutomatedProcessImprovement/Proximo) | Next.js, React, TypeORM |
 | Simulation service | [ongoing-bps-state](https://github.com/AutomatedProcessImprovement/ongoing-bps-state/tree/web-application-version), branch `web-application-version` | FastAPI, Prosimos |
 
 Both use the same MySQL database. The web app also needs Redis.
@@ -24,7 +26,7 @@ Both use the same MySQL database. The web app also needs Redis.
 Clone both repositories side by side:
 
 ```bash
-git clone https://github.com/AutomatedProcessImprovement/ProSim-ST.git
+git clone https://github.com/AutomatedProcessImprovement/Proximo.git
 git clone -b web-application-version https://github.com/AutomatedProcessImprovement/ongoing-bps-state.git
 ```
 
@@ -64,7 +66,7 @@ uvicorn main_web_app:app --reload --host 127.0.0.1 --port 8000
 In a second terminal, start the web app:
 
 ```bash
-cd ProSim-ST
+cd Proximo
 cp .env.example .env
 ```
 
@@ -76,7 +78,7 @@ npm run migrate:run
 npm run dev
 ```
 
-Open http://localhost:3000. The start page offers two sample processes, so you can try it without your own files. `/api/health` reports whether the database, Redis and the simulation service are reachable.
+Open http://localhost:3000. The start page offers four sample processes, so you can try it without your own files. The download button next to each one gives its log, BPMN model and parameters as a zip, to try the upload yourself. The BPIC 2017 and P2PFin samples are real logs with models discovered by Simod; their diagrams were laid out again for readability, without changing the process logic. P2PFin is anonymised in the source data, so its activities and resources carry numbered labels. `/api/health` reports whether the database, Redis and the simulation service are reachable.
 
 ## Run with Docker
 
@@ -106,8 +108,8 @@ docker run -d --name prosim-backend --network prosim \
   -e DB_NAME=prosim \
   prosim-backend
 
-docker build -t prosim-st .
-docker run -d --name prosim-st --network prosim \
+docker build -t proximo .
+docker run -d --name proximo --network prosim \
   -p 127.0.0.1:3000:3000 \
   -v prosim-assets:/app/public/assets \
   -e RUN_MIGRATIONS=1 \
@@ -122,10 +124,26 @@ docker run -d --name prosim-st --network prosim \
   -e REDIS_HOST=prosim-redis \
   -e REDIS_PORT=6379 \
   -e PYTHON_MICROSERVICE_BASE_URL=http://prosim-backend:8000 \
-  prosim-st
+  proximo
 ```
 
 With `RUN_MIGRATIONS=1`, each app waits for MySQL and applies its migrations before it starts. The app is then at http://localhost:3000. The port is bound to `127.0.0.1`, so put a reverse proxy in front of it to serve it publicly.
+
+## Logs of a process in progress
+
+A log can stop at the present moment: an event with an empty end time is an activity still in progress. The starting point then defaults to the end of the log. Cases that wait between activities look the same as finished ones in such a log, so the simulation service keeps every case that the BPMN model does not allow to end where it stopped. The sample logs are recorded this way. A log that goes on past the chosen starting point is cut there instead, and a case is open when it has activity after that moment.
+
+## What-if runs and resources
+
+Every run saves its computed process state and random seed. **What-if** reruns from that same state with changed pool sizes, arrival volume or task durations, and opens a comparison of queues, waiting times and resource use. With no changes, a rerun reproduces the original log exactly.
+
+A single run depends on chance, so each what-if also repeats both sides with up to 8 more seeds, and a change is marked better or worse only when all seeds moved the same way, similar otherwise. The repeats share a 60-second budget, set by `SCENARIO_REPEAT_BUDGET_SECONDS` on the simulation service. Simulations that take long get fewer repeats, and the comparison then says it has too few to judge.
+
+**Compare with an empty start**, in the same panel, reruns the model with no case in progress to show what the current state changes.
+
+**Resources** shows busy, idle and off-shift resources per pool, read from the simulated log and the resource calendars. Runs from before these features can show resources, but have to be run again for what-if.
+
+**This run** lists the starting state, input files, starting point, horizon, time zone, seed and case counts of a run. Waiting and processing times count the time a case spent at a task before the starting point, so runs saved before the `taskTimes` frame column existed show less of it until they are run again.
 
 ## Configuration
 

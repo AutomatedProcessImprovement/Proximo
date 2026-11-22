@@ -6,7 +6,7 @@ import {Toaster} from "sonner";
 import {CsvProvider} from "@context/CsvContext";
 
 export const metadata: Metadata = {
-  title: "ProSim-ST · Short-term business process simulation",
+  title: "Proximo · Short-term business process simulation",
   description: "Simulate the short-term future of a running business process from its event log, BPMN model and simulation parameters.",
 };
 
@@ -14,7 +14,7 @@ const RootLayout = ({ children }: Readonly<{ children: ReactNode; }>) => {
   return (
     <html lang="en">
       <body className={'antialiased2'}>
-        <h1>Short-term Business Process Simulation</h1>
+        <h1>Proximo<span className='tagline'>Short-term business process simulation</span></h1>
 
         <DataProvider>
           <CsvProvider>

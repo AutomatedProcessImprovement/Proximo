@@ -44,6 +44,47 @@ async function mockSimulationApis(page: Page) {
 }
 
 test.describe('Simulation page', () => {
+    test('opens the resources and what-if panels, one at a time', async ({ page }) => {
+        await mockSimulationApis(page);
+        await page.route(`**/api/simulation/${PROCESS_ID}/resources`, route => route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({
+                startDate: '2024-01-01T08:00:00+00:00',
+                endDate: '2024-01-01T10:00:00+00:00',
+                stepMs: 3600000,
+                calendarsKnown: true,
+                pools: [{ id: 'c', name: 'Clerk', size: 3, utilization: 0.5, busy: [1, 2, 0], idle: [2, 1, 0], resources: [] }],
+            }),
+        }));
+        await page.route(`**/api/simulation/${PROCESS_ID}/what-if`, route => route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({
+                baseProcessId: PROCESS_ID,
+                supported: true,
+                editablePools: true,
+                pools: [{ id: 'c', name: 'Clerk', size: 3 }],
+                tasks: [{ id: 't', name: 'Check' }],
+                scenarios: [],
+            }),
+        }));
+        const sim = new SimulationPage(page);
+        await sim.goto(PROCESS_ID);
+        await sim.waitForBpmnCanvas();
+
+        await page.getByRole('button', { name: 'Resources' }).click();
+        await expect(page.getByRole('complementary', { name: 'Resources' }).getByText('50% busy')).toBeVisible();
+
+        await page.getByRole('button', { name: 'What-if' }).click();
+        await expect(page.getByRole('complementary', { name: 'Resources' })).toHaveCount(0);
+        const panel = page.getByRole('complementary', { name: 'What-if' });
+        await expect(panel.getByRole('button', { name: 'Run what-if' })).toBeDisabled();
+        await panel.getByRole('button', { name: 'More Clerk resources' }).click();
+        await expect(panel.getByRole('button', { name: 'Run what-if' })).toBeEnabled();
+
+        await page.keyboard.press('Escape');
+        await expect(panel).toHaveCount(0);
+    });
+
     test('page loads, renders BPMN diagram, and all controls are present', async ({ page }) => {
         await mockSimulationApis(page);
         const sim = new SimulationPage(page);
@@ -257,7 +298,7 @@ test.describe('Simulation page', () => {
 
     test('a slower speed advances simulated time more slowly over the same wall-clock interval', async ({ page }) => {
         const parseSimMs = (timeStr: string) =>
-            new Date(timeStr.slice(0, 19).replace(' ', 'T') + 'Z').getTime();
+            new Date(timeStr.split(' UTC')[0] + ' UTC').getTime();
 
         await mockSimulationApis(page);
         const sim = new SimulationPage(page);
@@ -308,12 +349,12 @@ test.describe('Simulation page', () => {
         await page.goto(`/simulation/${PROCESS_ID}?t=2024-01-01T01:00:00Z&speed=3&colour=age`);
         await sim.waitForBpmnCanvas();
 
-        await expect(sim.simulatedTimeBox).toContainText('2024-01-01 01:00:00');
+        await expect(sim.simulatedTimeBox).toContainText('1 Jan 2024, 01:00');
         await expect(sim.speedSelect).toHaveValue('3');
         await expect(page.getByRole('button', { name: 'Case age' })).toHaveAttribute('aria-pressed', 'true');
 
         await page.waitForTimeout(600);
-        await expect(sim.simulatedTimeBox).toContainText('2024-01-01 01:00:00');
+        await expect(sim.simulatedTimeBox).toContainText('1 Jan 2024, 01:00');
     });
 
     test('clicking an activity in the statistics selects it on the diagram', async ({ page }) => {
@@ -322,6 +363,7 @@ test.describe('Simulation page', () => {
         await sim.goto(PROCESS_ID);
         await sim.waitForBpmnCanvas();
 
+        await page.locator('.wtpt-empty summary').click();
         await page.locator('.wtpt-row').first().click();
 
         await expect(page.locator('.task-panel')).toBeVisible();
